@@ -3,10 +3,14 @@ import API from "../api";
 import PriorityBadge from "./PriorityBadge";
 import AutoFillComplaint from "./AutoFillComplaint";
 
-function ComplaintForm({ onMessageGenerated }) {
+function ComplaintForm({
+  onMessageGenerated,
+  loggedCustomerName = "",
+  loggedCustomerPhone = ""
+}) {
   const [formData, setFormData] = useState({
-    customerName: "",
-    customerPhone: "",
+    customerName: loggedCustomerName,
+    customerPhone: loggedCustomerPhone,
     orderId: "",
     complaintType: "",
     itemName: "",
@@ -45,8 +49,10 @@ function ComplaintForm({ onMessageGenerated }) {
   const handleAutoFill = (extractedData) => {
     setFormData((prev) => ({
       ...prev,
-      customerName: extractedData.customerName || "",
-      customerPhone: extractedData.customerPhone || prev.customerPhone || "",
+
+      customerName: loggedCustomerName || prev.customerName,
+      customerPhone: loggedCustomerPhone || prev.customerPhone,
+
       orderId: extractedData.orderId || "",
       complaintType: extractedData.complaintType || "",
       itemName: extractedData.itemName || "",
@@ -64,11 +70,11 @@ function ComplaintForm({ onMessageGenerated }) {
     if (!formData.customerName.trim()) return "Customer name is required";
 
     if (!formData.customerPhone.trim()) {
-      return "Customer WhatsApp number is required";
+      return "Customer WhatsApp number is missing. Please login again.";
     }
 
     if (!cleanPhone.startsWith("91") || cleanPhone.length !== 12) {
-      return "Enter valid Indian WhatsApp number with country code. Example: 917462050039";
+      return "Invalid WhatsApp number. Please logout and login with valid number.";
     }
 
     if (!formData.orderId.trim()) return "Order ID is required";
@@ -93,11 +99,16 @@ function ComplaintForm({ onMessageGenerated }) {
       setLoading(true);
       setError("");
 
-      const response = await API.post("/generate", formData);
+      const payload = {
+        ...formData,
+        customerPhone: formData.customerPhone.replace(/\D/g, "")
+      };
+
+      const response = await API.post("/generate", payload);
 
       const generatedMsg = response.data.data.generatedMessage;
 
-      onMessageGenerated(generatedMsg, formData.customerPhone);
+      onMessageGenerated(generatedMsg, payload.customerPhone);
     } catch (err) {
       console.error(err);
 
@@ -115,8 +126,8 @@ function ComplaintForm({ onMessageGenerated }) {
 
   const fillSample = () => {
     setFormData({
-      customerName: "Rahul",
-      customerPhone: "917462050039",
+      customerName: loggedCustomerName || "Rahul",
+      customerPhone: loggedCustomerPhone || "917462050039",
       orderId: "QK1001",
       complaintType: "Item Missing",
       itemName: "Amul Milk",
@@ -130,8 +141,8 @@ function ComplaintForm({ onMessageGenerated }) {
 
   const resetForm = () => {
     setFormData({
-      customerName: "",
-      customerPhone: "",
+      customerName: loggedCustomerName,
+      customerPhone: loggedCustomerPhone,
       orderId: "",
       complaintType: "",
       itemName: "",
@@ -156,19 +167,15 @@ function ComplaintForm({ onMessageGenerated }) {
         <input
           type="text"
           name="customerName"
-          placeholder="Enter customer name"
           value={formData.customerName}
-          onChange={handleChange}
+          readOnly
+          className="readonly-input"
         />
 
-        <label>Customer WhatsApp Number</label>
-        <input
-          type="text"
-          name="customerPhone"
-          placeholder="Example: 917462050039"
-          value={formData.customerPhone}
-          onChange={handleChange}
-        />
+        <div className="login-phone-info">
+          <strong>WhatsApp Number:</strong> {formData.customerPhone}
+          <span>Number is taken from customer login.</span>
+        </div>
 
         <label>Order ID</label>
         <input
